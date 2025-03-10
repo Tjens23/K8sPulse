@@ -28,7 +28,7 @@ func NewMetricsServer() *MetricsServer {
 	var err error
 
 	config, err = rest.InClusterConfig()
-	if (err != nil) {
+	if err != nil {
 		var kubeconfig string
 		switch runtime.GOOS {
 		case "windows":
@@ -93,6 +93,12 @@ func (m *MetricsServer) FetchPodMetrics(namespace string) (map[string]interface{
 		for _, container := range pod.Containers {
 			containerMetrics[container.Name] = "CPU: " + container.Usage.Cpu().String() + " | RAM: " + container.Usage.Memory().String()
 		}
+		// Fetch the Pod object to get the node name
+		podObj, err := m.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		containerMetrics["Node"] = podObj.Spec.NodeName
 		metrics[pod.Namespace+"/"+pod.Name] = containerMetrics
 	}
 	return metrics, nil
@@ -101,11 +107,13 @@ func (m *MetricsServer) FetchPodMetrics(namespace string) (map[string]interface{
 func (m *MetricsServer) FetchMetrics(namespace string) (map[string]interface{}, error) {
 	allMetrics := make(map[string]interface{})
 
-	nodeMetrics, err := m.FetchNodeMetrics()
-	if err != nil {
-		return nil, err
+	if namespace == metav1.NamespaceAll {
+		nodeMetrics, err := m.FetchNodeMetrics()
+		if err != nil {
+			return nil, err
+		}
+		allMetrics["nodes"] = nodeMetrics
 	}
-	allMetrics["nodes"] = nodeMetrics
 
 	podMetrics, err := m.FetchPodMetrics(namespace)
 	if err != nil {
