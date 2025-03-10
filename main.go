@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,8 +27,18 @@ func NewMetricsServer() *MetricsServer {
 	var err error
 
 	config, err = rest.InClusterConfig()
-	if err != nil {
-		kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
+	if (err != nil) {
+		var kubeconfig string
+		switch runtime.GOOS {
+		case "windows":
+			kubeconfig = filepath.Join(os.Getenv("USERPROFILE"), ".kube", "config")
+		case "linux":
+			kubeconfig = filepath.Join(os.Getenv("HOME"), ".config", "config")
+		case "darwin":
+			kubeconfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")
+		default:
+			log.Fatalf("Unsupported OS: %v", runtime.GOOS)
+		}
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			log.Fatalf("Error creating K8s config: %v", err)
