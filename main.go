@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
@@ -19,9 +22,16 @@ type MetricsServer struct {
 }
 
 func NewMetricsServer() *MetricsServer {
-	config, err := rest.InClusterConfig()
+	var config *rest.Config
+	var err error
+
+	config, err = rest.InClusterConfig()
 	if err != nil {
-		log.Fatalf("Error creating K8s config: %v", err)
+		kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if err != nil {
+			log.Fatalf("Error creating K8s config: %v", err)
+		}
 	}
 
 	client, err := kubernetes.NewForConfig(config)
