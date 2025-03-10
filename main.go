@@ -27,7 +27,7 @@ func NewMetricsServer() *MetricsServer {
 	var err error
 
 	config, err = rest.InClusterConfig()
-	if (err != nil) {
+	if err != nil {
 		var kubeconfig string
 		switch runtime.GOOS {
 		case "windows":
@@ -92,7 +92,7 @@ func (m *MetricsServer) FetchPodMetrics() (map[string]interface{}, error) {
 		for _, container := range pod.Containers {
 			containerMetrics[container.Name] = "CPU: " + container.Usage.Cpu().String() + " | RAM: " + container.Usage.Memory().String()
 		}
-		metrics[pod.Name] = containerMetrics
+		metrics[pod.Namespace+"/"+pod.Name] = containerMetrics
 	}
 	return metrics, nil
 }
