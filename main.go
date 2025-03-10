@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +28,7 @@ func NewMetricsServer() *MetricsServer {
 	var err error
 
 	config, err = rest.InClusterConfig()
-	if err != nil {
+	if (err != nil) {
 		var kubeconfig string
 		switch runtime.GOOS {
 		case "windows":
@@ -80,9 +81,9 @@ func (m *MetricsServer) FetchNodeMetrics() (map[string]interface{}, error) {
 }
 
 // Fetch Pod Metrics (CPU, RAM Usage)
-func (m *MetricsServer) FetchPodMetrics() (map[string]interface{}, error) {
+func (m *MetricsServer) FetchPodMetrics(namespace string) (map[string]interface{}, error) {
 	metrics := make(map[string]interface{})
-	podMetrics, err := m.metricsClient.MetricsV1beta1().PodMetricses("").List(context.TODO(), metav1.ListOptions{})
+	podMetrics, err := m.metricsClient.MetricsV1beta1().PodMetricses(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func (m *MetricsServer) FetchPodMetrics() (map[string]interface{}, error) {
 	return metrics, nil
 }
 
-func (m *MetricsServer) FetchMetrics() (map[string]interface{}, error) {
+func (m *MetricsServer) FetchMetrics(namespace string) (map[string]interface{}, error) {
 	allMetrics := make(map[string]interface{})
 
 	nodeMetrics, err := m.FetchNodeMetrics()
@@ -106,7 +107,7 @@ func (m *MetricsServer) FetchMetrics() (map[string]interface{}, error) {
 	}
 	allMetrics["nodes"] = nodeMetrics
 
-	podMetrics, err := m.FetchPodMetrics()
+	podMetrics, err := m.FetchPodMetrics(namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +117,12 @@ func (m *MetricsServer) FetchMetrics() (map[string]interface{}, error) {
 }
 
 func (m *MetricsServer) MetricsHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := m.FetchMetrics()
+	namespace := strings.TrimPrefix(r.URL.Path, "/metrics/")
+	if namespace == "" {
+		namespace = metav1.NamespaceAll
+	}
+
+	data, err := m.FetchMetrics(namespace)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -126,7 +132,7 @@ func (m *MetricsServer) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	server := NewMetricsServer()
-	http.HandleFunc("/metrics", server.MetricsHandler)
+	http.HandleFunc("/metrics/", server.MetricsHandler)
 
 	srv := &http.Server{
 		Addr:         ":8080",
