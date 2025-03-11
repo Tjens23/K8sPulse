@@ -91,4 +91,4 @@ Contributing
 Contributions are welcome! Please open an issue or submit a pull request.
 
 Contact
-For any questions or suggestions, please contact tjens23@student.sdu.dk.
+For any questions or suggestions, please contact tjens23@student.sdu.dk or BitOfABye on discord.
