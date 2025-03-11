@@ -58,7 +58,8 @@ MetricsServer --> kubernetes.Clientset
 MetricsServer --> metricsclientset.Clientset
 @enduml
 ```
-```@startuml
+```plantuml
+@startuml
 actor User
 participant "MetricsServer" as MS
 participant "kubernetes.Clientset" as KCS
