@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -67,16 +68,34 @@ func (m *MetricsServer) FetchNodeMetrics() (map[string]interface{}, error) {
 		return nil, err
 	}
 
+	var totalMemory int64
+	var totalCPU int64
+	var totalStorage int64
+
 	for _, node := range nodes.Items {
 		nodeMetrics := make(map[string]string)
 		for _, condition := range node.Status.Conditions {
 			nodeMetrics[string(condition.Type)] = string(condition.Status)
 		}
-		nodeMetrics["CPU"] = node.Status.Capacity.Cpu().String()
-		nodeMetrics["Memory"] = node.Status.Capacity.Memory().String()
-		nodeMetrics["Storage"] = node.Status.Capacity.StorageEphemeral().String()
+		cpu := node.Status.Capacity.Cpu().MilliValue()
+		memory := node.Status.Capacity.Memory().Value()
+		storage := node.Status.Capacity.StorageEphemeral().Value()
+
+		nodeMetrics["CPU"] = fmt.Sprintf("%dm", cpu)
+		nodeMetrics["Memory"] = fmt.Sprintf("%dMi", memory/(1024*1024))
+		nodeMetrics["Storage"] = fmt.Sprintf("%dGi", storage/(1024*1024*1024))
+
+		totalCPU += cpu
+		totalMemory += memory
+		totalStorage += storage
+
 		metrics[node.Name] = nodeMetrics
 	}
+
+	metrics["totalCPU"] = fmt.Sprintf("%d cores", totalCPU/1000)
+	metrics["totalMemory"] = fmt.Sprintf("%d GiB", totalMemory/(1024*1024*1024))
+	metrics["totalStorage"] = fmt.Sprintf("%d GiB", totalStorage/(1024*1024*1024))
+
 	return metrics, nil
 }
 
