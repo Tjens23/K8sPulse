@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -144,6 +146,38 @@ func (m *MetricsServer) FetchNodeSpecificMetrics(nodeName string) (map[string]in
 	return metrics, nil
 }
 
+func (m *MetricsServer) FetchNodeTemperature(nodeName string) (map[string]interface{}, error) {
+	temperatureMetrics := make(map[string]interface{})
+	nodeExporterURL := fmt.Sprintf("http://%s:9100/metrics", nodeName) // Adjust the URL as needed
+
+	resp, err := http.Get(nodeExporterURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch metrics from Node Exporter: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the metrics to find temperature
+	metrics := string(body)
+	tempMatches := regexp.MustCompile(`node_hwmon_temp_celsius{.*} (\d+\.\d+)`).FindAllStringSubmatch(metrics, -1)
+
+	for _, match := range tempMatches {
+		if len(match) > 1 {
+			temperatureMetrics[match[0]] = match[1] // Store the temperature value
+		}
+	}
+
+	return temperatureMetrics, nil
+}
+
 // Fetch Pod Metrics (CPU, RAM Usage)
 func (m *MetricsServer) FetchPodMetrics(namespace string) (map[string]interface{}, error) {
 	metrics := make(map[string]interface{})
@@ -198,7 +232,11 @@ func (m *MetricsServer) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if len(parts) > 1 && parts[0] == "node" {
 		nodeName := parts[1]
-		data, err = m.FetchNodeSpecificMetrics(nodeName)
+		if len(parts) > 2 && parts[2] == "temperature" {
+			data, err = m.FetchNodeTemperature(nodeName)
+		} else {
+			data, err = m.FetchNodeSpecificMetrics(nodeName)
+		}
 	} else {
 		namespace := path
 		if namespace == "" {
