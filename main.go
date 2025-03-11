@@ -99,6 +99,51 @@ func (m *MetricsServer) FetchNodeMetrics() (map[string]interface{}, error) {
 	return metrics, nil
 }
 
+// Fetch Node Specific Metrics and Pods
+func (m *MetricsServer) FetchNodeSpecificMetrics(nodeName string) (map[string]interface{}, error) {
+	metrics := make(map[string]interface{})
+	node, err := m.client.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	nodeMetrics := make(map[string]string)
+	for _, condition := range node.Status.Conditions {
+		nodeMetrics[string(condition.Type)] = string(condition.Status)
+	}
+	cpu := node.Status.Capacity.Cpu().MilliValue()
+	memory := node.Status.Capacity.Memory().Value()
+	storage := node.Status.Capacity.StorageEphemeral().Value()
+
+	nodeMetrics["CPU"] = fmt.Sprintf("%dm", cpu)
+	nodeMetrics["Memory"] = fmt.Sprintf("%dMi", memory/(1024*1024))
+	nodeMetrics["Storage"] = fmt.Sprintf("%dGi", storage/(1024*1024*1024))
+
+	metrics["nodeMetrics"] = nodeMetrics
+
+	// Fetch Pods assigned to the node
+	pods, err := m.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	podMetrics := make(map[string]interface{})
+	for _, pod := range pods.Items {
+		containerMetrics := make(map[string]string)
+		for _, container := range pod.Spec.Containers {
+			containerMetrics[container.Name] = "CPU: " + container.Resources.Requests.Cpu().String() + " | RAM: " + container.Resources.Requests.Memory().String()
+		}
+		containerMetrics["Namespace"] = pod.Namespace
+		podMetrics[pod.Name] = containerMetrics
+	}
+
+	metrics["podMetrics"] = podMetrics
+
+	return metrics, nil
+}
+
 // Fetch Pod Metrics (CPU, RAM Usage)
 func (m *MetricsServer) FetchPodMetrics(namespace string) (map[string]interface{}, error) {
 	metrics := make(map[string]interface{})
@@ -145,12 +190,23 @@ func (m *MetricsServer) FetchMetrics(namespace string) (map[string]interface{}, 
 }
 
 func (m *MetricsServer) MetricsHandler(w http.ResponseWriter, r *http.Request) {
-	namespace := strings.TrimPrefix(r.URL.Path, "/metrics/")
-	if namespace == "" {
-		namespace = metav1.NamespaceAll
+	path := strings.TrimPrefix(r.URL.Path, "/metrics/")
+	parts := strings.Split(path, "/")
+
+	var data map[string]interface{}
+	var err error
+
+	if len(parts) > 1 && parts[0] == "node" {
+		nodeName := parts[1]
+		data, err = m.FetchNodeSpecificMetrics(nodeName)
+	} else {
+		namespace := path
+		if namespace == "" {
+			namespace = metav1.NamespaceAll
+		}
+		data, err = m.FetchMetrics(namespace)
 	}
 
-	data, err := m.FetchMetrics(namespace)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
