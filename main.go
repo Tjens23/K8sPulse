@@ -99,7 +99,8 @@ func (m *MetricsServer) FetchPodMetrics(namespace string) (map[string]interface{
 			return nil, err
 		}
 		containerMetrics["Node"] = podObj.Spec.NodeName
-		metrics[pod.Namespace+"/"+pod.Name] = containerMetrics
+		containerMetrics["Namespace"] = pod.Namespace
+		metrics[pod.Name] = containerMetrics
 	}
 	return metrics, nil
 }
