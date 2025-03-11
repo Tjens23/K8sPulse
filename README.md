@@ -57,8 +57,8 @@ class MetricsServer {
 MetricsServer --> kubernetes.Clientset
 MetricsServer --> metricsclientset.Clientset
 @enduml
-
-@startuml
+```
+```@startuml
 actor User
 participant "MetricsServer" as MS
 participant "kubernetes.Clientset" as KCS
@@ -83,7 +83,7 @@ MS -> Node Exporter: Get Temperature Metrics
 Node Exporter --> MS: Temperature Metrics
 MS -> User: JSON Response
 @enduml
-
+```
 License
 This project is licensed under the MIT License - see the LICENSE file for details.
 
