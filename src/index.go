@@ -2,25 +2,22 @@ package main
 
 import (
 	"log"
-	"net/http"
-	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"tjens23.dk/K8sPulse/src/database"
 	"tjens23.dk/K8sPulse/src/metrics"
 )
 
 func main() {
+	app := fiber.New()
 
 	server := metrics.NewMetricsServer()
-	http.HandleFunc("/metrics/", server.MetricsHandler)
-
-	srv := &http.Server{
-		Addr:         ":8080",
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
+	app.Get("/metrics/*", server.MetricsHandler)
 
 	database.Connect()
 	log.Println("Metrics server started on :8080")
-	log.Fatal(srv.ListenAndServe())
+
+	if err := app.Listen(":8080"); err != nil {
+		log.Fatalf("Error starting server: %v", err)
+	}
 }

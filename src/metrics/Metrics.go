@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/gofiber/fiber/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -222,8 +222,8 @@ func (m *MetricsServer) FetchMetrics(namespace string) (map[string]interface{}, 
 	return allMetrics, nil
 }
 
-func (m *MetricsServer) MetricsHandler(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/metrics/")
+func (m *MetricsServer) MetricsHandler(c *fiber.Ctx) error {
+	path := strings.TrimPrefix(c.Path(), "/metrics/")
 	parts := strings.Split(path, "/")
 
 	var data map[string]interface{}
@@ -245,8 +245,7 @@ func (m *MetricsServer) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return c.Status(http.StatusInternalServerError).SendString(err.Error())
 	}
-	json.NewEncoder(w).Encode(data)
+	return c.JSON(data)
 }
