@@ -1,4 +1,4 @@
-package main
+package metrics
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -250,18 +249,4 @@ func (m *MetricsServer) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(data)
-}
-
-func main() {
-	server := NewMetricsServer()
-	http.HandleFunc("/metrics/", server.MetricsHandler)
-
-	srv := &http.Server{
-		Addr:         ":8080",
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
-
-	log.Println("Metrics server started on :8080")
-	log.Fatal(srv.ListenAndServe())
 }
