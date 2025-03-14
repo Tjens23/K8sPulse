@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"tjens23.dk/K8sPulse/src/database"
 	"tjens23.dk/K8sPulse/src/metrics"
 )
 
@@ -19,6 +20,7 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	}
 
+	database.Connect()
 	log.Println("Metrics server started on :8080")
 	log.Fatal(srv.ListenAndServe())
 }
